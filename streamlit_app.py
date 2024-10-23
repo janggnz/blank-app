@@ -206,4 +206,3 @@ if high_price > 0 and low_price > 0:
     st.write(f"### Fibonacci {fib_method} Levels:")
     for level, value in fib_levels.items():
         st.write(f"{level}: {value:.2f}")
-        
