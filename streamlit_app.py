@@ -36,7 +36,6 @@ horizontal_line_colors_input = st.sidebar.text_input('Enter horizontal line colo
 
 # Cache the data fetching function
 @st.cache_data
-# Fetch data from yfinance
 def fetch_data(ticker, start, end):
     if start and end:
         # Fetch data based on the selected date range
@@ -45,7 +44,6 @@ def fetch_data(ticker, start, end):
         # Fetch all available data
         stock_data = yf.download(ticker)
     return stock_data
-
 
 # 1-Month Chart
 st.write("## 1-Month Chart")
@@ -83,8 +81,21 @@ if not one_month_data.empty:
 
     # Display the 1-month chart
     st.plotly_chart(one_month_fig)
+
+    # Find the extreme values (high and low) for the last month
+    high_price = one_month_data['High'].max()  # Highest price in the last month
+    low_price = one_month_data['Low'].min()    # Lowest price in the last month
+
+    # Set pivot as the average of the high and low prices
+    pivot_price = (high_price + low_price) / 2
+
+    # Display the extreme values and pivot
+    st.write(f"### Extreme Values for the Last Month:")
+    st.write(f"High Price: {high_price:.3f}")
+    st.write(f"Low Price: {low_price:.3f}")
 else:
     st.error("No data available for the last 1 month.")
+
 
 # Main Chart
 st.write("## Main Chart")
@@ -210,29 +221,31 @@ if ticker:
     except Exception as e:
         st.error(f"Error fetching data for {ticker.upper()}: {str(e)}")
 
+
+
 # Fibonacci Calculator Section
 st.write("## Fibo Calculator")
 
-# Create three columns for the price inputs
+# Create three columns for the price inputs, pre-populated with the calculated high, low, and pivot values
 col1, col2, col3 = st.columns(3)
 
 # Input fields for Fibonacci calculations, aligned in a single row with specified initial values and allowing negatives
 with col1:
-    low_price = st.number_input("Low Price", value=100.0, format="%.3f")
+    low_price_input = st.number_input("Low Price", value=low_price, format="%.3f")
 with col2:
-    high_price = st.number_input("High Price", value=300.0, format="%.3f")
+    high_price_input = st.number_input("High Price", value=high_price, format="%.3f")
 with col3:
-    pivot_price = st.number_input("Pivot Price", value=130.0, format="%.3f")
+    pivot_price_input = st.number_input("Pivot Price", value=pivot_price, format="%.3f")
 
 # Dropdowns for action (Buy/Sell) and computation method
 col4, col5 = st.columns(2)
 
 with col4:
-    action = st.selectbox("Select Action", ["Buy", "Sell"],index=0)
+    action = st.selectbox("Select Action", ["Buy", "Sell"], index=0)
 with col5:
     fib_method = st.selectbox("Fibonacci Method", ["Retracement & Extension", "Price Projection & Expansion"])
 
-# Refined Retracement & Extension function
+# Refined Fibonacci calculations (as previously defined)
 def compute_fibo_ret_ext(high, low, action):
     levels = {
         "RET 38%": 0.38196601125010515,
@@ -259,7 +272,6 @@ def compute_fibo_ret_ext(high, low, action):
             elif "EXT" in key:  # Extension logic for Sell
                 fibonacci_results[key] = low + abs(high - low) * ratio
     return fibonacci_results
-
 
 # Refined Price Projection & Expansion function
 def compute_fibo_pp_exp(high, low, pivot, action):
@@ -293,13 +305,13 @@ def compute_fibo_pp_exp(high, low, pivot, action):
     return fibonacci_results
 
 # Display Fibonacci results in two formats
-if high_price > 0 and low_price > 0:
+if high_price_input > 0 and low_price_input > 0:
     if fib_method == "Retracement & Extension":
         # Compute Retracement & Extension levels
-        fib_levels_result = compute_fibo_ret_ext(high_price, low_price, action)
+        fib_levels_result = compute_fibo_ret_ext(high_price_input, low_price_input, action)
     elif fib_method == "Price Projection & Expansion":
         # Compute Price Projection & Expansion levels
-        fib_levels_result = compute_fibo_pp_exp(high_price, low_price, pivot_price, action)
+        fib_levels_result = compute_fibo_pp_exp(high_price_input, low_price_input, pivot_price_input, action)
 
 st.write(f"### {fib_method}:")
 # Create two columns side by side
