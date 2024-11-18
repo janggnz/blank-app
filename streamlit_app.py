@@ -45,6 +45,50 @@ def fetch_data(ticker, start, end):
         stock_data = yf.download(ticker)
     return stock_data
 
+
+# Function to create horizontal lines traces
+def create_horizontal_lines(dates, horizontal_lines_input, horizontal_line_colors_input):
+    horizontal_lines_traces = []
+    horizontal_lines = []
+    horizontal_colors = []
+
+    # Parse the horizontal lines and colors from user input
+    if horizontal_lines_input:
+        try:
+            horizontal_lines = [float(val.strip()) for val in horizontal_lines_input.split(',')]
+        except ValueError:
+            st.error("Invalid input for horizontal line values. Please enter valid numbers separated by commas.")
+    
+    if horizontal_line_colors_input:
+        horizontal_colors = [val.strip() for val in horizontal_line_colors_input.split(',')]
+
+    # Default colors
+    default_colors = ['#177e89', '#084c61', '#db3a34', '#ffc857', '#323031']
+    
+    if len(horizontal_colors) != len(horizontal_lines):
+        st.warning("The number of colors doesn't match the number of lines. Defaulting to the first 5 colors and cycling.")
+        for i in range(len(horizontal_lines)):
+            if i >= len(horizontal_colors):
+                horizontal_colors.append(default_colors[i % len(default_colors)])
+
+    # Create horizontal line traces
+    for idx, val in enumerate(horizontal_lines):
+        color = horizontal_colors[idx]
+        horizontal_lines_traces.append(
+            go.Scatter(
+                x=[dates[0], dates[-1]],  # Start and end dates for the horizontal line
+                y=[val, val],  # The value at which the line will be drawn
+                mode='lines',
+                name=f'Horizontal Line at {val}',
+                line=dict(color=color, dash='dash'),
+            )
+        )
+
+    return horizontal_lines_traces
+
+# Sidebar checkbox to include horizontal lines on the 1-month chart
+include_horizontal_lines_1_month = st.sidebar.checkbox("Include Horizontal Lines on 1-Month Chart", value=False)
+
 # 1-Month Chart
 st.write("## 1-Month Chart")
 
@@ -79,6 +123,13 @@ if not one_month_data.empty:
     # Create the 1-month chart figure
     one_month_fig = go.Figure(data=[one_month_candlestick], layout=one_month_layout)
 
+    # If horizontal lines are enabled, add them to the 1-month chart
+    if include_horizontal_lines_1_month:
+        horizontal_lines_traces_1_month = create_horizontal_lines(dates, horizontal_lines_input, horizontal_line_colors_input)
+
+        # Add horizontal lines to the 1-month chart figure
+        one_month_fig.add_traces(horizontal_lines_traces_1_month)
+
     # Display the 1-month chart
     st.plotly_chart(one_month_fig)
 
@@ -95,6 +146,7 @@ if not one_month_data.empty:
     st.write(f"Low Price: {low_price:.3f}")
 else:
     st.error("No data available for the last 1 month.")
+
 
 
 # Main Chart
@@ -118,7 +170,6 @@ if ticker:
             # Display the data types of the columns in the sidebar
             st.sidebar.write("Data Types of the Columns:")
             st.sidebar.write(stock_data.dtypes)
-
             # Ensure all required columns are numeric (float or int)
             for col in required_columns:
                 if not pd.api.types.is_numeric_dtype(stock_data[col]):
@@ -126,11 +177,11 @@ if ticker:
                     # Convert column to numeric, coerce errors to NaN
                     stock_data[col] = pd.to_numeric(stock_data[col], errors='coerce')
                     st.sidebar.write(f"After conversion, NaN values in {col}: {stock_data[col].isna().sum()}")
-
             # Drop any rows with NaN values in required columns
             stock_data.dropna(subset=required_columns, inplace=True)
             st.sidebar.write(f"Data after dropping rows with NaN values:")
             st.sidebar.dataframe(stock_data.tail())
+
 
             # Calculate user-defined Moving Averages
             stock_data[f'SMA{sma_1}'] = stock_data['Close'].rolling(window=sma_1).mean()
@@ -165,41 +216,8 @@ if ticker:
                 line=dict(color='orange', width=2)
             )
 
-            # Parse the horizontal line values and colors from user input
-            horizontal_lines = []
-            if horizontal_lines_input:
-                try:
-                    horizontal_lines = [float(val.strip()) for val in horizontal_lines_input.split(',')]
-                except ValueError:
-                    st.error("Invalid input for horizontal line values. Please enter valid numbers separated by commas.")
-
-            horizontal_colors = []
-            if horizontal_line_colors_input:
-                horizontal_colors = [val.strip() for val in horizontal_line_colors_input.split(',')]
-
-            # Define default colors for cycling
-            default_colors = ['#177e89', '#084c61', '#db3a34', '#ffc857', '#323031']
-
-            # Cycle through default colors if user-defined colors are insufficient
-            if len(horizontal_colors) != len(horizontal_lines):
-                st.warning("The number of colors doesn't match the number of lines. Defaulting to the first 5 colors and cycling.")
-                for i in range(len(horizontal_lines)):
-                    if i >= len(horizontal_colors):
-                        horizontal_colors.append(default_colors[i % len(default_colors)])
-
-            # Create horizontal lines based on the parsed values and colors
-            horizontal_lines_traces = []
-            for idx, val in enumerate(horizontal_lines):
-                color = horizontal_colors[idx]
-                horizontal_lines_traces.append(
-                    go.Scatter(
-                        x=[dates[0], dates[-1]],  # Start and end dates for the horizontal line
-                        y=[val, val],  # The value at which the line will be drawn
-                        mode='lines',
-                        name=f'Horizontal Line at {val}',
-                        line=dict(color=color, dash='dash'),
-                    )
-                )
+            # Create horizontal lines using the helper function
+            horizontal_lines_traces = create_horizontal_lines(dates, horizontal_lines_input, horizontal_line_colors_input)
 
             # Set the layout for the chart
             layout = go.Layout(
