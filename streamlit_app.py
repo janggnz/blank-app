@@ -48,7 +48,7 @@ def fetch_data(ticker, start, end):
 
 
 # 1-Month Chart
-st.write("## 1-Month Candlestick Chart")
+st.write("## 1-Month Chart")
 
 # Fetch data for the last 1 month
 one_month_start_date = datetime.today() - timedelta(days=30)
@@ -87,7 +87,7 @@ else:
     st.error("No data available for the last 1 month.")
 
 # Main Chart
-st.write("## Main Candlestick Chart")
+st.write("## Main Chart")
 
 # Check if ticker input is valid
 if ticker:
@@ -211,7 +211,7 @@ if ticker:
         st.error(f"Error fetching data for {ticker.upper()}: {str(e)}")
 
 # Fibonacci Calculator Section
-st.write("## Fibonacci Calculator")
+st.write("## Fibo Calculator")
 
 # Create three columns for the price inputs
 col1, col2, col3 = st.columns(3)
