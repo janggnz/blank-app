@@ -11,7 +11,7 @@ st.title('Candlestick Chart with Fibonacci Calculations')
 st.sidebar.header("Chart Configuration")
 
 # User input for ticker in the sidebar
-ticker = st.sidebar.text_input('Enter stock ticker (e.g., AAPL, MSFT, TSLA)', 'AAPL')
+ticker = st.sidebar.text_input('Enter stock ticker (e.g., AAPL, MSFT, TSLA, ^DJI, ^GSPC, ^IXIC, )', '^DJI')
 
 # Selector: Option to choose between all data or date range
 option = st.sidebar.radio("Select Data Range", ('All available data', 'Select a date range'))
@@ -34,6 +34,8 @@ horizontal_lines_input = st.sidebar.text_input('Enter horizontal line values (se
 # Input for horizontal line colors (separated by commas)
 horizontal_line_colors_input = st.sidebar.text_input('Enter horizontal line colors (separate by commas, e.g., #177e89, #084c61, #db3a34)', '')
 
+# Cache the data fetching function
+@st.cache_data
 # Fetch data from yfinance
 def fetch_data(ticker, start, end):
     if start and end:
@@ -43,6 +45,49 @@ def fetch_data(ticker, start, end):
         # Fetch all available data
         stock_data = yf.download(ticker)
     return stock_data
+
+
+# 1-Month Chart
+st.write("## 1-Month Candlestick Chart")
+
+# Fetch data for the last 1 month
+one_month_start_date = datetime.today() - timedelta(days=30)
+one_month_end_date = datetime.today()
+one_month_data = fetch_data(ticker, one_month_start_date, one_month_end_date)
+
+if not one_month_data.empty:
+    # Prepare data for the 1-month candlestick chart
+    dates = one_month_data.index
+    open_prices = one_month_data['Open']
+    high_prices = one_month_data['High']
+    low_prices = one_month_data['Low']
+    close_prices = one_month_data['Close']
+
+    # Create candlestick chart using Plotly
+    one_month_candlestick = go.Candlestick(x=dates,
+                                           open=open_prices,
+                                           high=high_prices,
+                                           low=low_prices,
+                                           close=close_prices)
+
+    # Set layout for the 1-month chart
+    one_month_layout = go.Layout(
+        title=f'{ticker.upper()} 1-Month Candlestick Chart',
+        xaxis_title='Date',
+        yaxis_title='Price (USD)',
+        xaxis_rangeslider_visible=False
+    )
+
+    # Create the 1-month chart figure
+    one_month_fig = go.Figure(data=[one_month_candlestick], layout=one_month_layout)
+
+    # Display the 1-month chart
+    st.plotly_chart(one_month_fig)
+else:
+    st.error("No data available for the last 1 month.")
+
+# Main Chart
+st.write("## Main Candlestick Chart")
 
 # Check if ticker input is valid
 if ticker:
@@ -165,44 +210,112 @@ if ticker:
     except Exception as e:
         st.error(f"Error fetching data for {ticker.upper()}: {str(e)}")
 
-# Fibonacci section at the bottom
+# Fibonacci Calculator Section
 st.write("## Fibonacci Calculator")
 
-# Input fields for Fibonacci calculations
-high_price = st.number_input("High Price", min_value=0.0, format="%.2f", value=0.0)
-low_price = st.number_input("Low Price", min_value=0.0, format="%.2f", value=0.0)
-pivot_price = st.number_input("Pivot Price", min_value=0.0, format="%.2f", value=0.0)
+# Create three columns for the price inputs
+col1, col2, col3 = st.columns(3)
 
-# Buy or Sell selector
-action = st.radio("Select Action", ['Buy', 'Sell'])
+# Input fields for Fibonacci calculations, aligned in a single row with specified initial values and allowing negatives
+with col1:
+    low_price = st.number_input("Low Price", value=100.0, format="%.3f")
+with col2:
+    high_price = st.number_input("High Price", value=300.0, format="%.3f")
+with col3:
+    pivot_price = st.number_input("Pivot Price", value=130.0, format="%.3f")
 
-# Fibonacci computation method
-fib_method = st.selectbox("Fibonacci Method", ['Retracement', 'Extension', 'Price Projection', 'Expansion'])
+# Dropdowns for action (Buy/Sell) and computation method
+col4, col5 = st.columns(2)
 
-# Function to calculate Fibonacci levels
-def compute_fibonacci_levels(high, low, method):
-    fibonacci_levels = {}
-    if method == "Retracement":
-        levels = [0.236, 0.382, 0.5, 0.618, 0.786]
-        for level in levels:
-            fibonacci_levels[f"{int(level * 100)}%"] = high - (high - low) * level
-    elif method == "Extension":
-        levels = [1.272, 1.618, 2.0, 2.618]
-        for level in levels:
-            fibonacci_levels[f"{int(level * 100)}%"] = high + (high - low) * level
-    elif method == "Price Projection":
-        levels = [1.618, 2.0, 2.618]
-        for level in levels:
-            fibonacci_levels[f"{int(level * 100)}%"] = low + (high - low) * level
-    elif method == "Expansion":
-        levels = [1.618, 2.618]
-        for level in levels:
-            fibonacci_levels[f"{int(level * 100)}%"] = high + (high - low) * level
-    return fibonacci_levels
+with col4:
+    action = st.selectbox("Select Action", ["Buy", "Sell"],index=0)
+with col5:
+    fib_method = st.selectbox("Fibonacci Method", ["Retracement & Extension", "Price Projection & Expansion"])
 
-# Show Fibonacci levels
+# Refined Retracement & Extension function
+def compute_fibo_ret_ext(high, low, action):
+    levels = {
+        "RET 38%": 0.38196601125010515,
+        "RET 50%": 0.5,
+        "RET 62%": 0.6180339887498949,
+        "RET 79%": 0.7861513777574233,
+        "RET 89%": 0.886651779,
+        "EXT 100%": 1,
+        "EXT 112%": 1.127838485,
+        "EXT 127%": 1.272019649514069,
+        "EXT 162%": 1.6180339887498949,
+        "EXT 262%": 2.6180339887498949,
+    }
+    fibonacci_results = {}
+    for key, ratio in levels.items():
+        if action == "Buy":
+            if "RET" in key:  # Retracement logic for Buy
+                fibonacci_results[key] = high - abs(high - low) * ratio
+            elif "EXT" in key:  # Extension logic for Buy
+                fibonacci_results[key] = high - abs(high - low) * ratio
+        elif action == "Sell":
+            if "RET" in key:  # Retracement logic for Sell
+                fibonacci_results[key] = low + abs(high - low) * ratio
+            elif "EXT" in key:  # Extension logic for Sell
+                fibonacci_results[key] = low + abs(high - low) * ratio
+    return fibonacci_results
+
+
+# Refined Price Projection & Expansion function
+def compute_fibo_pp_exp(high, low, pivot, action):
+    levels = {
+        "PP 62%": 0.6180339887498949,
+        "PP 79%": 0.7861513777574233,
+        "PP 89%": 0.886651779,
+        "PP 100%": 1,
+        "PP 112%": 1.127838485,
+        "PP 127%": 1.272019649514069,
+        "PP 162%": 1.6180339887498949,  # Added PP 162%
+        "PP 262%": 2.6180339887498949,  # Added PP 262%
+        "EXP 38%": 0.38196601125010515,
+        "EXP 50%": 0.5,
+        "EXP 62%": 0.6180339887498949,
+        "EXP 100%": 1,
+        "EXP 162%": 1.6180339887498949,
+    }
+    fibonacci_results = {}
+    for key, ratio in levels.items():
+        if action == "Buy":
+            if "PP" in key:  # Price Projection logic for Buy (based on pivot)
+                fibonacci_results[key] = pivot - abs(high - low) * ratio
+            elif "EXP" in key:  # Expansion logic for Buy (based on low)
+                fibonacci_results[key] = low - abs(high - low) * ratio
+        elif action == "Sell":
+            if "PP" in key:  # Price Projection logic for Sell (based on pivot)
+                fibonacci_results[key] = pivot + abs(high - low) * ratio
+            elif "EXP" in key:  # Expansion logic for Sell (based on high)
+                fibonacci_results[key] = high + abs(high - low) * ratio
+    return fibonacci_results
+
+# Display Fibonacci results in two formats
 if high_price > 0 and low_price > 0:
-    fib_levels = compute_fibonacci_levels(high_price, low_price, fib_method)
-    st.write(f"### Fibonacci {fib_method} Levels:")
-    for level, value in fib_levels.items():
-        st.write(f"{level}: {value:.2f}")
+    if fib_method == "Retracement & Extension":
+        # Compute Retracement & Extension levels
+        fib_levels_result = compute_fibo_ret_ext(high_price, low_price, action)
+    elif fib_method == "Price Projection & Expansion":
+        # Compute Price Projection & Expansion levels
+        fib_levels_result = compute_fibo_pp_exp(high_price, low_price, pivot_price, action)
+
+st.write(f"### {fib_method}:")
+# Create two columns side by side
+col1, col2 = st.columns(2)
+
+# Format 1: Display as a single line of values (only resultant values, with 3 decimal places) in the first column
+with col1:
+    st.write(f"### Single Line:")
+    fib_values = ", ".join([f"{value:.3f}" for value in fib_levels_result.values()])  # Join values into a single string
+    st.write(fib_values)  # Display the single line of values in the first column
+
+# Format 2: Display as a table with explicit level labels in the second column
+with col2:
+    st.write(f"### Table:")
+    fib_df = pd.DataFrame({
+        "Level (%)": list(fib_levels_result.keys()),  # Fibonacci level labels (e.g., "RET 38%")
+        "Price Levels": [f"{value:.3f}" for value in fib_levels_result.values()],  # Formatted price levels
+    })
+    st.dataframe(fib_df)  # Display the table in the second column
