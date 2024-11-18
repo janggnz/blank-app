@@ -5,7 +5,7 @@ import plotly.graph_objs as go
 from datetime import datetime, timedelta
 
 # Streamlit app
-st.title('Candlestick Chart with Fibonacci Calculations')
+st.title('Huat Le Calculator')
 
 # Sidebar inputs for ticker, data selector, moving averages, and horizontal lines
 st.sidebar.header("Chart Configuration")
